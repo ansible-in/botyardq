@@ -30,6 +30,7 @@ server.On("connection",func(so socketio.Socket) {
         //...
     })
 });
+```
 
 ## Completion of the message.
 
@@ -45,6 +46,7 @@ server.On("connection",func(so socketio.Socket) {
     })
 });
 ```
+
 - TBD
 
 
