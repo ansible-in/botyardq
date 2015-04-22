@@ -3,27 +3,63 @@ package main
 import (
 	"log"
 	"sync"
+	"time"
 )
 
 type Topic struct {
-	Name      string
-	Queue     Queue
-	waitingCh chan interface{}
-	mutex     sync.Mutex
+	Name                 string
+	Queue                Queue
+	PendingTimeout       time.Duration
+	pendingCheckInterval time.Duration
+	waitingCh            chan interface{}
+	mutex                sync.Mutex
+	store                Store
 }
 
-func NewTopic(name string) *Topic {
+func NewTopic(name string, pendingTimeout time.Duration, store Store) *Topic {
 
 	topic := &Topic{
-		Name:      name,
-		Queue:     NewLLQueue(),
-		waitingCh: make(chan interface{}),
+		Name:                 name,
+		Queue:                NewLLQueue(),
+		PendingTimeout:       pendingTimeout,
+		pendingCheckInterval: 10 * time.Second,
+		waitingCh:            make(chan interface{}),
+		store:                store,
 	}
 
 	return topic
 }
 
+func (t *Topic) Init() error {
+
+	//First time, Messages go from Disk to Queue.
+	err := t.store.WalkMessage(func(m *Message) error {
+		t.push(m)
+		return nil
+	})
+
+	go t.pendingChecker()
+
+	return err
+}
+
 func (t *Topic) PushMessage(msg *Message) {
+	t.push(msg)
+	t.store.PutMessage(msg)
+}
+
+func (t *Topic) PopMessage() (msg *Message) {
+
+	msg = t.pop()
+
+	now := time.Now()
+	t.store.PutMessage(msg)
+	t.store.PutPendingMsgID(&now, msg.ID)
+
+	return
+}
+
+func (t *Topic) push(msg *Message) {
 	select {
 	case t.waitingCh <- msg:
 	default:
@@ -37,7 +73,7 @@ func (t *Topic) PushMessage(msg *Message) {
 	}
 }
 
-func (t *Topic) PopMessage() (msg *Message) {
+func (t *Topic) pop() (msg *Message) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -49,5 +85,43 @@ func (t *Topic) PopMessage() (msg *Message) {
 		msg = item.(*Message)
 		msg.State = MSG_DEQUEUED
 	}
+
 	return
+
+}
+
+func (t *Topic) pendingChecker() {
+
+	//st := time.Now()
+	st, _ := time.Parse("2006-Jan-02", "2013-Feb-03")
+
+	walkFunc := func(ts *time.Time, id MessageID) error {
+		if ts.Add(t.PendingTimeout).Before(time.Now()) {
+			m, err := t.store.GetMessage(id)
+			if err != nil {
+				//TODO: Log
+			}
+
+			m.State = MSG_ENQUEUED
+			t.store.PutMessage(m)
+			t.store.RemovePendingMsgID(ts)
+			t.push(m)
+		}
+
+		return nil
+	}
+
+	ticker := time.NewTicker(t.pendingCheckInterval)
+	for {
+		select {
+		case <-ticker.C:
+			ed := st.Add(t.pendingCheckInterval)
+			err := t.store.WalkPendingMsgId(&st, &ed, walkFunc)
+			if err != nil {
+				//TODO: Log
+
+			}
+		}
+	}
+
 }

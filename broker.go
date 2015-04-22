@@ -9,6 +9,7 @@ import (
 
 type Broker struct {
 	ID         int64
+	DBPath     string
 	Topics     map[string]*Topic
 	topicMutex sync.Mutex
 	idChan     chan MessageID
@@ -18,6 +19,7 @@ func NewBroker() *Broker {
 
 	b := &Broker{
 		ID:     1,
+		DBPath: "/tmp",
 		idChan: make(chan MessageID, 4096), // Buffer
 	}
 
@@ -34,7 +36,10 @@ func (b *Broker) Topic(name string) *Topic {
 		return t
 	}
 
-	t := NewTopic(name)
+	store, _ := NewTopicStore("bolt", b.DBPath, name)
+	pendingTimeout := 10 * time.Second
+	t := NewTopic(name, pendingTimeout, store)
+
 	b.Topics[name] = t
 
 	return t
