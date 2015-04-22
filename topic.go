@@ -23,7 +23,7 @@ func NewTopic(name string) *Topic {
 	return topic
 }
 
-func (t *Topic) PushMessage(msg interface{}) {
+func (t *Topic) PushMessage(msg *Message) {
 	select {
 	case t.waitingCh <- msg:
 	default:
@@ -37,14 +37,17 @@ func (t *Topic) PushMessage(msg interface{}) {
 	}
 }
 
-func (t *Topic) PopMessage() interface{} {
+func (t *Topic) PopMessage() (msg *Message) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if msg := t.Queue.Pop(); msg != nil {
-		return msg
+	if item := t.Queue.Pop(); item != nil {
+		msg = item.(*Message)
+		msg.State = MSG_DEQUEUED
 	} else {
-		msg := <-t.waitingCh
-		return msg
+		item := <-t.waitingCh
+		msg = item.(*Message)
+		msg.State = MSG_DEQUEUED
 	}
+	return
 }

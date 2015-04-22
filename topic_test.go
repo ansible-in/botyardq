@@ -7,13 +7,15 @@ import (
 
 func TestTopicSimple(t *testing.T) {
 	topic := NewTopic("simple")
-	topic.PushMessage(1)
+	var id MessageID
+	m := NewMessage(id, 1)
+	topic.PushMessage(m)
 	data := topic.PopMessage()
 	if data == nil {
 		t.Errorf("data is nill,wants 1")
 	}
 
-	if data.(int) != 1 {
+	if data.Value.(int) != 1 {
 		t.Errorf("data is not 1")
 	}
 }
@@ -23,14 +25,16 @@ func _TestTopicPopBlock(t *testing.T) {
 
 	topic := NewTopic("simple")
 	go func() {
-		topic.PushMessage(1)
+		var id MessageID
+		m := NewMessage(id, 1)
+		topic.PushMessage(m)
 	}()
 
 	go func() {
 		wg.Add(1)
-		data := topic.PopMessage()
-		if data.(int) != 1 {
-			t.Errorf("PopMessage should be blocked %v", data)
+		m := topic.PopMessage()
+		if m.Value.(int) != 1 {
+			t.Errorf("PopMessage should be blocked %v", m)
 		}
 		wg.Done()
 	}()
@@ -42,6 +46,8 @@ func BenchmarkTopicPush(b *testing.B) {
 	topic := NewTopic("simple")
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		topic.PushMessage(i)
+		var id MessageID
+		m := NewMessage(id, i)
+		topic.PushMessage(m)
 	}
 }

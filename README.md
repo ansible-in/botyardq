@@ -1,52 +1,47 @@
 # botyardq
 
-botyardq is a simple message queue which uses websocket(socket.io) as transport, JSON to format a protocol. 
+botyardq is a simple message queue which uses HTTP/SSE as transport, JSON or arbitrary text to format a protocol. 
 
 
 # Features
 
-- [ ] socket.io based commucation
-- [ ] uses namespace as topic/queue
-- [ ] supports pub/sub (maybe uses socket.io's rooms for this)
-- [ ] persisted messages by disk queue 
-- [ ] monitoring/stats REST api
+- [ ] HTTP based commucation
+- [ ] Supports pub/sub 
+- [ ] Persisted messages
+- [ ] Monitoring/stats REST api
 
-# socket.io as transport
+# HTTP as transport
 
-Instead of uses custom transport, botyardq uses websocket/socket.io as transport. This means that you don't make client for to use it. 
+Instead of uses custom transport, botyardq uses HTTP/ServerSentEvents as transport. This means that you don't make client for to use it. 
 
 ## Push a message
 
-```
-var socket = io();
-socket.emit('message',<JSON>);
-```
+    $ curl -X POST http://localhost:7000/v1/queue/:queue -d 'foo'
 
-## Pop a message
-
-```
-server.On("connection",func(so socketio.Socket) {
-    so.On("message",func(msg *Message) {
-        //...
-    })
-});
-```
-
-## Completion of the message.
-
- Sometimes it is necessary for the broker(botyardq) to know whether or not the message is finished yet. If the broker knows the stage at which the message is at; the broker or the publisher can attempt the message again.
-
-If consumer doesn't emit done message,the broker will drop the message  as same as finished message after several time (timeout)
-
-```
-server.On("connection",func(so socketio.Socket) {
-    so.On("message",func(msg *Message) {
-        //...
-        so.Emit("done",msg.ID)
-    })
-});
-```
+### Processing timeout
 
 - TBD
 
+## Pop a message
+
+    $ curl -X GET http://localhost:7000/v1/queue/:queue/streams #
+
+Stream and dequeue messages in the head of the queue. You should uses with `EventSource` in web browser or something else which supported.
+
+The first line of message will point to the message information in server and its form looks like `http://localhost:7000/v1/queue/:queue/:id`. 
+The message is in the response body.
+
+    http://localhost:7000/v1/queue/test/1
+    foo
+
+
+### Pending wait.
+
+- TBD
+
+## Completion of the message
+
+Complete the message and delete it. 
+
+    $ curl -X DELETE http://localhost:7000/v1/queue/:queue/:id
 
