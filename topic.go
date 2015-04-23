@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -34,7 +35,9 @@ func (t *Topic) Init() error {
 
 	//First time, Messages go from Disk to Queue.
 	err := t.store.WalkMessage(func(m *Message) error {
-		t.push(m)
+		if m.State == MSG_ENQUEUED {
+			t.push(m)
+		}
 		return nil
 	})
 
@@ -57,6 +60,20 @@ func (t *Topic) PopMessage() (msg *Message) {
 	t.store.PutPendingMsgID(&now, msg.ID)
 
 	return
+}
+
+func (t *Topic) FinishMessage(id MessageID) error {
+	msg, err := t.store.GetMessage(id)
+	if err != nil {
+		return err
+	}
+
+	if msg.State == MSG_ENQUEUED {
+		return fmt.Errorf("Message complete failed")
+	}
+
+	err = t.store.RemoveMessage(id)
+	return err
 }
 
 func (t *Topic) push(msg *Message) {
@@ -121,6 +138,7 @@ func (t *Topic) pendingChecker() {
 				//TODO: Log
 
 			}
+			st = ed
 		}
 	}
 

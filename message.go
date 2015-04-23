@@ -19,10 +19,10 @@ type MessageIDGenerator interface {
 }
 
 type Message struct {
-	ID      MessageID
-	Value   interface{}
-	Created time.Time
-	State   uint8
+	ID      MessageID   `json:"id,string"`
+	Value   interface{} `json:"value"`
+	Created time.Time   `json:"created"`
+	State   uint8       `json:"state"`
 }
 
 func NewMessage(id MessageID, value interface{}) *Message {

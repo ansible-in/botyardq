@@ -26,7 +26,7 @@ type Store interface {
 
 func NewTopicStore(storeType string, path string, topic string) (Store, error) {
 	if storeType == "bolt" {
-		path := filepath.Join(path, topic+".bolt.db")
+		path := filepath.Join(path, topic+".boltdb")
 		store := NewBlotStore(path)
 		return store, nil
 	}
